@@ -206,8 +206,8 @@ runTeletype = unsafeCoerce (flip $ go StackNil)
           go stack state (Pure (unsafeCoerce (f "\n")))
     -- Bind does nothing to the state but it modifies the current stack.
     -- More specifically, it appends a `StackBinds` populated with its
-    -- queue of monadic functions, before recursing into the monad it's
-    -- currently holding.
+    -- queue of monadic functions, before recursing into the inner
+    -- monad.
     Bind i q →
       go (StackBinds stack q) state i
     -- Pure often represents the end of a monadic computation, and in
@@ -227,15 +227,16 @@ runTeletype = unsafeCoerce (flip $ go StackNil)
           -- We start by dissecting our monadic function queue.
           case unconsView queue of
             -- If there are no more functions to apply, recurse using
-            -- the rest of the stack, the current state, and the last
-            -- value of the last function applied to the `Pure` value.
+            -- the rest of the stack, the current state, and the value
+            -- of the last function applied to the `Pure` value.
             UnconsDone (TeletypeK k) →
               go stack_ state' (k a)
-            -- If there are more functions to apply, push another
-            -- `StackBinds` to the stack with the rest of the queue
-            -- inside, then use this; the current state; and the the
-            -- value of the freshly plucked function applied to the
-            -- `Pure` value.
+            -- If there are more functions to apply, push the popped
+            -- `StackBinds` back to the stack except the queue is
+            -- replaced by the tail of whatever was deconstructed.
+            -- Use this new stack, the current state, adn the value
+            -- of the freshly unconsed function applied to the `Pure`
+            -- value.
             UnconsMore (TeletypeK k) queue' →
               go (StackBinds stack_ queue') state' (k a)
 
