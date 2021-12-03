@@ -37,32 +37,32 @@ import Unsafe.Coerce (unsafeCoerce)
 foreign import data UnsafeBoundValue ∷ Type
 
 -- | A common data type for chaining monadic functions algebraically.
-data Queue c a b
+data BindsQueue c a b
   = Leaf (c a b)
-  | Node (Queue c a UnsafeBoundValue) (Queue c UnsafeBoundValue b)
+  | Node (BindsQueue c a UnsafeBoundValue) (BindsQueue c UnsafeBoundValue b)
 
 -- | Append a monadic function to the queue
-qappend ∷ ∀ c a x b. Queue c a x → Queue c x b → Queue c a b
+qappend ∷ ∀ c a x b. BindsQueue c a x → BindsQueue c x b → BindsQueue c a b
 qappend = unsafeCoerce Node
 
 -- | Create a monadic function queue
-qsingleton ∷ ∀ c a b. c a b → Queue c a b
+qsingleton ∷ ∀ c a b. c a b → BindsQueue c a b
 qsingleton = Leaf
 
 -- | A data type for deconstructing a queue
-data UnconsView c a b x
+data UnconsQueue c a b x
   = UnconsDone (c a b)
-  | UnconsMore (c a x) (Queue c x b)
+  | UnconsMore (c a x) (BindsQueue c x b)
 
 -- | Deconstruct a queue into its view
-unconsView ∷ ∀ c a b. Queue c a b → UnconsView c a b UnsafeBoundValue
-unconsView = uncons (unsafeCoerce UnconsDone) (unsafeCoerce UnconsMore)
+unconsQueue ∷ ∀ c a b. BindsQueue c a b → UnconsQueue c a b UnsafeBoundValue
+unconsQueue = uncons (unsafeCoerce UnconsDone) (unsafeCoerce UnconsMore)
   where
   uncons
     ∷ ∀ r
     . (c a b → r)
-    → (∀ x. c a x → Queue c x b → r)
-    → Queue c a b
+    → (∀ x. c a x → BindsQueue c x b → r)
+    → BindsQueue c a b
     → r
   uncons done more = case _ of
     Leaf a → done a
@@ -70,9 +70,9 @@ unconsView = uncons (unsafeCoerce UnconsDone) (unsafeCoerce UnconsMore)
 
   uncons'
     ∷ ∀ x r
-    . (∀ z. c a z → Queue c z b → r)
-    → Queue c a x
-    → Queue c x b
+    . (∀ z. c a z → BindsQueue c z b → r)
+    → BindsQueue c a x
+    → BindsQueue c x b
     → r
   uncons' cons l r = case l of
     Leaf k → cons (unsafeCoerce k) (unsafeCoerce r)
@@ -86,7 +86,7 @@ newtype TeletypeK a b = TeletypeK (a → Teletype b)
 derive instance Newtype (TeletypeK a b) _
 
 -- | A queue of monadic functions for a Teletype
-type QTeletypeK = Queue TeletypeK
+type QTeletypeK = BindsQueue TeletypeK
 
 -- | The teletype monad.
 data Teletype a
@@ -225,7 +225,7 @@ runTeletype = unsafeCoerce (flip $ go StackNil)
         -- stack; the current state; and the queue of monadic functions.
         UnwindBinds stack_ state' queue →
           -- We start by dissecting our monadic function queue.
-          case unconsView queue of
+          case unconsQueue queue of
             -- If there are no more functions to apply, recurse using
             -- the rest of the stack, the current state, and the value
             -- of the last function applied to the `Pure` value.
