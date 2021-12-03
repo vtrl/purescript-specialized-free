@@ -94,12 +94,12 @@ data Teletype a
   = Pure a
   | Bind (Teletype UnsafeBoundValue) (QTeletypeK UnsafeBoundValue a)
   -- | Custom instructions.
-  | PutLine String
+  | PutLine String a
   | GetLine (String → a)
 
 -- | Log some output.
 putLine ∷ String → Teletype Unit
-putLine = PutLine
+putLine = flip PutLine unit
 
 -- | Get some input.
 getLine ∷ Teletype String
@@ -193,8 +193,8 @@ runTeletype = unsafeCoerce (flip $ go StackNil)
     -- then it terminates computation by recursing into `Pure` with
     -- `unit` as the value. This mirrors the `String -> Teletype Unit`
     -- type we have for its smart constructor `putLine`.
-    PutLine l →
-      go stack (state { o = l : state.o }) (Pure (unsafeCoerce unit))
+    PutLine l u →
+      go stack (state { o = l : state.o }) (Pure u)
     -- GetLine modifies our state by uncons-ing a line from the input,
     -- it then passes this value onto the inner function that it's
     -- holding, which is `identity` for its smart constructor `getLine`.
